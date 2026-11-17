@@ -162,6 +162,22 @@ function main(config) {
       ]
     },
 
+    // Bilibili：直连、香港、台湾
+    {
+      name: "Bilibili",
+      regions: ["DIRECT", "HK", "TW"],
+      providers: {
+        bilibili: {
+          ...ruleProviderCommonDomain,
+          url: `${ruleSetBaseUrl}geosite/bilibili.mrs`,
+          path: "./ruleset/bilibili.mrs"
+        }
+      },
+      rules: [
+        "RULE-SET,bilibili,Bilibili"
+      ]
+    },
+
     {
       name: "TikTok",
       regions: ["TW", "JP", "SG", "US", "AL"],
