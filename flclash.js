@@ -56,15 +56,19 @@ function main(config) {
   });
 
   // =====================================
-  // 地区策略组
+  // 地区自动测速策略组
   // =====================================
 
   const regionGroups = regions.map(region => ({
     name: region,
-    type: "select",
+    type: "url-test",
     proxies: regionNodes[region].length
       ? regionNodes[region]
-      : ["REJECT"]
+      : ["REJECT"],
+    url: "https://www.gstatic.com/generate_204",
+    interval: 300,
+    tolerance: 50,
+    lazy: true
   }));
 
   // =====================================
