@@ -1,75 +1,62 @@
 function main(config) {
   const proxies = config.proxies || [];
 
-  // ==============================
-  // 地区识别规则
-  // ==============================
+  // =====================================
+  // 基础配置
+  // =====================================
 
-  const regionRules = {
-    HK: /香港|Hong.?Kong|\bHK\b|🇭🇰/i,
-    TW: /台湾|台灣|Taiwan|\bTW\b|🇹🇼/i,
-    JP: /日本|Japan|\bJP\b|🇯🇵/i,
-    SG: /新加坡|狮城|Singapore|\bSG\b|🇸🇬/i,
-    US: /美国|美國|United.?States|\bUS\b|🇺🇸/i
-  };
+  const ruleSetBaseUrl =
+    "https://fastly.jsdelivr.net/gh/appshubcc/bett-rules@meta/geo/";
 
-  // ==============================
-  // 服务策略组
-  // ==============================
+  const regions = ["HK", "TW", "JP", "SG", "US", "AL"];
 
-  const services = [
-    "Proxy",
-    "Telegram",
-    "Netflix",
-    "Disney+",
-    "YouTube",
-    "TikTok",
-    "Spotify",
-    "Google",
-    "OpenAI",
-    "Game"
+  // =====================================
+  // 地区识别
+  // =====================================
+
+  const regionDefinitions = [
+    {
+      name: "HK",
+      regex: /香港|Hong.?Kong|\bHK\b|🇭🇰/i
+    },
+    {
+      name: "TW",
+      regex: /台湾|台灣|Taiwan|\bTW\b|🇹🇼/i
+    },
+    {
+      name: "JP",
+      regex: /日本|东京|大阪|Japan|\bJP\b|🇯🇵/i
+    },
+    {
+      name: "SG",
+      regex: /新加坡|狮城|Singapore|\bSG\b|🇸🇬/i
+    },
+    {
+      name: "US",
+      regex: /美国|美國|United.?States|America|\bUS\b|🇺🇸/i
+    }
   ];
 
-  // 地区列表
-  const regions = [
-    "HK",
-    "TW",
-    "JP",
-    "SG",
-    "US",
-    "AL"
-  ];
-
-  // ==============================
-  // 自动识别节点地区
-  // ==============================
-
-  const regionNodes = {};
-
-  regions.forEach(region => {
-    regionNodes[region] = [];
-  });
+  const regionNodes = Object.fromEntries(
+    regions.map(region => [region, []])
+  );
 
   proxies.forEach(proxy => {
     const name = proxy.name || "";
-    let matched = false;
+    const matched = regionDefinitions.find(region =>
+      region.regex.test(name)
+    );
 
-    for (const [region, regex] of Object.entries(regionRules)) {
-      if (regex.test(name)) {
-        regionNodes[region].push(name);
-        matched = true;
-        break;
-      }
-    }
-
-    if (!matched) {
+    if (matched) {
+      regionNodes[matched.name].push(name);
+    } else {
       regionNodes.AL.push(name);
     }
   });
 
-  // ==============================
-  // 创建地区策略组
-  // ==============================
+  // =====================================
+  // 地区策略组
+  // =====================================
 
   const regionGroups = regions.map(region => ({
     name: region,
@@ -79,9 +66,189 @@ function main(config) {
       : ["REJECT"]
   }));
 
-  // ==============================
-  // 创建服务策略组
-  // ==============================
+  // =====================================
+  // Rule Provider 通用配置
+  // =====================================
+
+  const ruleProviderCommonDomain = {
+    type: "http",
+    behavior: "domain",
+    format: "mrs",
+    interval: 86400
+  };
+
+  const ruleProviderCommonIpcidr = {
+    type: "http",
+    behavior: "ipcidr",
+    format: "mrs",
+    interval: 86400
+  };
+
+  // =====================================
+  // 服务配置
+  // 采用 MyClash serviceConfigs 机制
+  // =====================================
+
+  const serviceConfigs = [
+    {
+      name: "Telegram",
+      providers: {
+        telegram: {
+          ...ruleProviderCommonDomain,
+          url: `${ruleSetBaseUrl}geosite/telegram.mrs`,
+          path: "./ruleset/telegram.mrs"
+        },
+        telegram_ip: {
+          ...ruleProviderCommonIpcidr,
+          url: `${ruleSetBaseUrl}geoip/telegram.mrs`,
+          path: "./ruleset/telegram_ip.mrs"
+        }
+      },
+      rules: [
+        "RULE-SET,telegram,Telegram",
+        "RULE-SET,telegram_ip,Telegram,no-resolve"
+      ]
+    },
+
+    {
+      name: "Netflix",
+      providers: {
+        netflix: {
+          ...ruleProviderCommonDomain,
+          url: `${ruleSetBaseUrl}geosite/netflix.mrs`,
+          path: "./ruleset/netflix.mrs"
+        },
+        netflix_ip: {
+          ...ruleProviderCommonIpcidr,
+          url: `${ruleSetBaseUrl}geoip/netflix.mrs`,
+          path: "./ruleset/netflix_ip.mrs"
+        }
+      },
+      rules: [
+        "RULE-SET,netflix,Netflix",
+        "RULE-SET,netflix_ip,Netflix,no-resolve"
+      ]
+    },
+
+    {
+      name: "Disney+",
+      providers: {
+        disney: {
+          ...ruleProviderCommonDomain,
+          url: `${ruleSetBaseUrl}geosite/disney.mrs`,
+          path: "./ruleset/disney.mrs"
+        }
+      },
+      rules: [
+        "RULE-SET,disney,Disney+"
+      ]
+    },
+
+    {
+      name: "YouTube",
+      providers: {
+        youtube: {
+          ...ruleProviderCommonDomain,
+          url: `${ruleSetBaseUrl}geosite/youtube.mrs`,
+          path: "./ruleset/youtube.mrs"
+        }
+      },
+      rules: [
+        "RULE-SET,youtube,YouTube"
+      ]
+    },
+
+    {
+      name: "TikTok",
+      providers: {
+        tiktok: {
+          ...ruleProviderCommonDomain,
+          url: `${ruleSetBaseUrl}geosite/tiktok.mrs`,
+          path: "./ruleset/tiktok.mrs"
+        }
+      },
+      rules: [
+        "RULE-SET,tiktok,TikTok"
+      ]
+    },
+
+    {
+      name: "Spotify",
+      providers: {
+        spotify: {
+          ...ruleProviderCommonDomain,
+          url: `${ruleSetBaseUrl}geosite/spotify.mrs`,
+          path: "./ruleset/spotify.mrs"
+        }
+      },
+      rules: [
+        "RULE-SET,spotify,Spotify"
+      ]
+    },
+
+    {
+      name: "Google",
+      providers: {
+        google: {
+          ...ruleProviderCommonDomain,
+          url: `${ruleSetBaseUrl}geosite/google.mrs`,
+          path: "./ruleset/google.mrs"
+        },
+        google_ip: {
+          ...ruleProviderCommonIpcidr,
+          url: `${ruleSetBaseUrl}geoip/google.mrs`,
+          path: "./ruleset/google_ip.mrs"
+        }
+      },
+      rules: [
+        "RULE-SET,google,Google",
+        "RULE-SET,google_ip,Google,no-resolve"
+      ]
+    },
+
+    {
+      name: "OpenAI",
+      providers: {
+        openai: {
+          ...ruleProviderCommonDomain,
+          url: `${ruleSetBaseUrl}geosite/openai.mrs`,
+          path: "./ruleset/openai.mrs"
+        },
+        openai_ip: {
+          ...ruleProviderCommonIpcidr,
+          url: `${ruleSetBaseUrl}geoip/openai.mrs`,
+          path: "./ruleset/openai_ip.mrs"
+        }
+      },
+      rules: [
+        "RULE-SET,openai,OpenAI",
+        "RULE-SET,openai_ip,OpenAI,no-resolve"
+      ]
+    },
+
+    {
+      name: "Game",
+      providers: {
+        game: {
+          ...ruleProviderCommonDomain,
+          url: `${ruleSetBaseUrl}geosite/category-games.mrs`,
+          path: "./ruleset/category-games.mrs"
+        }
+      },
+      rules: [
+        "RULE-SET,game,Game"
+      ]
+    }
+  ];
+
+  // =====================================
+  // 统一构建服务策略组
+  // =====================================
+
+  const services = [
+    "Proxy",
+    ...serviceConfigs.map(service => service.name)
+  ];
 
   const serviceGroups = services.map(service => ({
     name: service,
@@ -89,96 +256,40 @@ function main(config) {
     proxies: regions
   }));
 
-  // 服务组在前，地区组在后
+  // =====================================
+  // 注册 Rule Providers
+  // =====================================
+
+  const finalRuleProviders = {};
+
+  serviceConfigs.forEach(service => {
+    Object.assign(
+      finalRuleProviders,
+      service.providers
+    );
+  });
+
+  config["rule-providers"] = {
+    ...(config["rule-providers"] || {}),
+    ...finalRuleProviders
+  };
+
+  // =====================================
+  // 替换机场策略组
+  // =====================================
+
   config["proxy-groups"] = [
     ...serviceGroups,
     ...regionGroups
   ];
 
-  // ==============================
-  // 远程规则集
-  // ==============================
-
-  const providerCommon = {
-    type: "http",
-    behavior: "classical",
-    interval: 86400
-  };
-
-  config["rule-providers"] = {
-    ...(config["rule-providers"] || {}),
-
-    Telegram: {
-      ...providerCommon,
-      format: "yaml",
-      url: "https://yfamilys.com/rule/Telegram.rule",
-      path: "./ruleset/Telegram.yaml"
-    },
-
-    Netflix: {
-      ...providerCommon,
-      format: "text",
-      url: "https://yfamilys.com/rule/Netflix.list",
-      path: "./ruleset/Netflix.list"
-    },
-
-    Disney: {
-      ...providerCommon,
-      format: "yaml",
-      url: "https://yfamilys.com/rule/Disney.rule",
-      path: "./ruleset/Disney.yaml"
-    },
-
-    YouTube: {
-      ...providerCommon,
-      format: "yaml",
-      url: "https://yfamilys.com/rule/YouTube.rule",
-      path: "./ruleset/YouTube.yaml"
-    },
-
-    TikTok: {
-      ...providerCommon,
-      format: "yaml",
-      url: "https://yfamilys.com/rule/TikTok.rule",
-      path: "./ruleset/TikTok.yaml"
-    },
-
-    Spotify: {
-      ...providerCommon,
-      format: "yaml",
-      url: "https://yfamilys.com/rule/Spotify.rule",
-      path: "./ruleset/Spotify.yaml"
-    },
-
-    Google: {
-      ...providerCommon,
-      format: "yaml",
-      url: "https://yfamilys.com/rule/Google.rule",
-      path: "./ruleset/Google.yaml"
-    },
-
-    OpenAI: {
-      ...providerCommon,
-      format: "yaml",
-      url: "https://yfamilys.com/rule/OpenAI.rule",
-      path: "./ruleset/OpenAI.yaml"
-    },
-
-    Game: {
-      ...providerCommon,
-      format: "yaml",
-      url: "https://yfamilys.com/rule/Game.rule",
-      path: "./ruleset/Game.yaml"
-    }
-  };
-
-  // ==============================
-  // 有效策略组
-  // ==============================
+  // =====================================
+  // 修复机场旧规则引用
+  // =====================================
 
   const validGroups = new Set([
-    ...regions,
-    ...services
+    ...services,
+    ...regions
   ]);
 
   const builtinPolicies = new Set([
@@ -188,31 +299,20 @@ function main(config) {
     "PASS"
   ]);
 
-  // ==============================
-  // 修复机场旧规则
-  // ==============================
-
   config.rules = (config.rules || []).map(rule => {
-    if (typeof rule !== "string") {
-      return rule;
-    }
+    if (typeof rule !== "string") return rule;
 
     const normalized = rule.replace(/，/g, ",");
     const parts = normalized.split(",");
 
-    if (parts.length < 2) {
-      return normalized;
-    }
+    if (parts.length < 2) return normalized;
 
     const type = parts[0].trim().toUpperCase();
 
-    const policyIndex = ["MATCH", "FINAL"].includes(type)
-      ? 1
-      : 2;
+    const policyIndex =
+      ["MATCH", "FINAL"].includes(type) ? 1 : 2;
 
-    if (parts.length <= policyIndex) {
-      return normalized;
-    }
+    if (parts.length <= policyIndex) return normalized;
 
     const policy = parts[policyIndex].trim();
 
@@ -223,44 +323,31 @@ function main(config) {
       return normalized;
     }
 
+    // 机场旧策略组映射到 Proxy
     parts[policyIndex] = "Proxy";
 
     return parts.join(",");
   });
 
-  // ==============================
-  // 服务分流规则
-  // ==============================
+  // =====================================
+  // 自动生成服务分流规则
+  // =====================================
 
-  const serviceRules = [
-    "RULE-SET,Telegram,Telegram",
-    "RULE-SET,Netflix,Netflix",
-    "RULE-SET,Disney,Disney+",
-    "RULE-SET,YouTube,YouTube",
-    "RULE-SET,TikTok,TikTok",
-    "RULE-SET,Spotify,Spotify",
-    "RULE-SET,Google,Google",
-    "RULE-SET,OpenAI,OpenAI",
-    "RULE-SET,Game,Game"
-  ];
+  const functionalRules = [];
 
-  // 删除旧的同名规则，避免重复
-  const providerNames = new Set([
-    "Telegram",
-    "Netflix",
-    "Disney",
-    "YouTube",
-    "TikTok",
-    "Spotify",
-    "Google",
-    "OpenAI",
-    "Game"
-  ]);
+  serviceConfigs.forEach(service => {
+    functionalRules.push(...service.rules);
+  });
+
+  // 移除旧的同名 RULE-SET 规则
+  const providerNames = new Set(
+    serviceConfigs.flatMap(service =>
+      Object.keys(service.providers)
+    )
+  );
 
   config.rules = config.rules.filter(rule => {
-    if (typeof rule !== "string") {
-      return true;
-    }
+    if (typeof rule !== "string") return true;
 
     const parts = rule.replace(/，/g, ",").split(",");
 
@@ -270,17 +357,11 @@ function main(config) {
     );
   });
 
-  // 插入到 MATCH / FINAL 兜底规则之前
-  const matchIndex = config.rules.findIndex(rule =>
-    typeof rule === "string" &&
-    /^(MATCH|FINAL),/i.test(rule.trim())
-  );
-
-  if (matchIndex === -1) {
-    config.rules.push(...serviceRules);
-  } else {
-    config.rules.splice(matchIndex, 0, ...serviceRules);
-  }
+  // 服务规则放在最前面，确保优先匹配
+  config.rules = [
+    ...functionalRules,
+    ...config.rules
+  ];
 
   return config;
 }
