@@ -43,6 +43,7 @@ function main(config) {
 
   proxies.forEach(proxy => {
     const name = proxy.name || "";
+
     const matched = regionDefinitions.find(region =>
       region.regex.test(name)
     );
@@ -86,12 +87,12 @@ function main(config) {
 
   // =====================================
   // 服务配置
-  // 采用 MyClash serviceConfigs 机制
   // =====================================
 
   const serviceConfigs = [
     {
       name: "Telegram",
+      regions,
       providers: {
         telegram: {
           ...ruleProviderCommonDomain,
@@ -112,6 +113,7 @@ function main(config) {
 
     {
       name: "Netflix",
+      regions,
       providers: {
         netflix: {
           ...ruleProviderCommonDomain,
@@ -132,6 +134,7 @@ function main(config) {
 
     {
       name: "Disney+",
+      regions,
       providers: {
         disney: {
           ...ruleProviderCommonDomain,
@@ -146,6 +149,7 @@ function main(config) {
 
     {
       name: "YouTube",
+      regions,
       providers: {
         youtube: {
           ...ruleProviderCommonDomain,
@@ -160,6 +164,7 @@ function main(config) {
 
     {
       name: "TikTok",
+      regions: ["TW", "JP", "SG", "US", "AL"],
       providers: {
         tiktok: {
           ...ruleProviderCommonDomain,
@@ -174,6 +179,7 @@ function main(config) {
 
     {
       name: "Spotify",
+      regions,
       providers: {
         spotify: {
           ...ruleProviderCommonDomain,
@@ -188,6 +194,7 @@ function main(config) {
 
     {
       name: "Google",
+      regions,
       providers: {
         google: {
           ...ruleProviderCommonDomain,
@@ -208,6 +215,7 @@ function main(config) {
 
     {
       name: "OpenAI",
+      regions: ["TW", "JP", "SG", "US", "AL"],
       providers: {
         openai: {
           ...ruleProviderCommonDomain,
@@ -228,6 +236,7 @@ function main(config) {
 
     {
       name: "Game",
+      regions: ["DIRECT", ...regions],
       providers: {
         game: {
           ...ruleProviderCommonDomain,
@@ -242,18 +251,21 @@ function main(config) {
   ];
 
   // =====================================
-  // 统一构建服务策略组
+  // 构建软件策略组
   // =====================================
 
   const services = [
-    "Proxy",
-    ...serviceConfigs.map(service => service.name)
+    {
+      name: "Proxy",
+      regions
+    },
+    ...serviceConfigs
   ];
 
   const serviceGroups = services.map(service => ({
-    name: service,
+    name: service.name,
     type: "select",
-    proxies: regions
+    proxies: service.regions
   }));
 
   // =====================================
@@ -288,7 +300,7 @@ function main(config) {
   // =====================================
 
   const validGroups = new Set([
-    ...services,
+    ...services.map(service => service.name),
     ...regions
   ]);
 
